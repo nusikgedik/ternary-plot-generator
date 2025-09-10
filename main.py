@@ -472,9 +472,9 @@ if __name__ == "__main__":
     # First graph: Atomic percent, showing equidistant exploration points
     unit_type = UnitType.ATOMIC_PERCENT
     ax = ternary_plot(system, unit_type)
-    generated_data_set = generate_equidistant_points(system_type, n=8)
-    #print(f"{generated_data_set=}")
-    plot_with_points(ax, generated_data_set, scatter_type=ScatterplotTypes.DEFINED)
+    equidistant_atomic_data_set = generate_equidistant_points(system_type, n=8)
+    print(f"{equidistant_atomic_data_set=}")
+    plot_with_points(ax, equidistant_atomic_data_set, scatter_type=ScatterplotTypes.DEFINED)
     plt.show(block=False)
     plt.pause(1)
 
@@ -482,10 +482,10 @@ if __name__ == "__main__":
     # molar space considering the source chemicals
     unit_type = UnitType.MOLAR_PERCENT
     ax = ternary_plot(system, unit_type)
-    mol_percent_data_set = mol_percent_data_set_calculator(generated_data_set, system, system_type)
+    mol_percent_data_set = mol_percent_data_set_calculator(equidistant_atomic_data_set, system, system_type)
     plot_error_bars(ax, system, mol_percent_data_set, total_mass=0.5, mass_uncertainty=0.025, unit_type=unit_type)
 
-    #print(f"{mol_percent_data_set=}")
+    print(f"{mol_percent_data_set=}")
     plot_with_points(ax, mol_percent_data_set, scatter_type=ScatterplotTypes.DEFINED)
 
     print_weighing_table(mol_percent_data_set, system, system_type, total_weight=0.5)
