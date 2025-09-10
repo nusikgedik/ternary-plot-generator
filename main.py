@@ -31,23 +31,26 @@ def ternary_plot(system, unit_type=UnitType.ATOMIC_PERCENT):
     '''
 
     plt.rcParams.update({'font.size': 16})
-    component_t, molar_mass_t = system[0]
-    component_l, molar_mass_l = system[1]
-    component_r, molar_mass_r = system[2]
+    metal_t, metal_per_molecule_t, component_t, molar_mass_t = system[0]
+    metal_l, metal_per_molecule_l, component_l, molar_mass_l = system[1]
+    metal_r, metal_per_molecule_r, component_r, molar_mass_r = system[2]
 
     # Define plot settings
     plot_setup = {
         UnitType.MOLAR_PERCENT: {
             "unit": "(mol %)",
-            "ternary_sum": 1,
+            "ternary_sum": 100.0,
+            "system_name": f"{component_t}-{component_l}-{component_r} system"
         },
         UnitType.ATOMIC_PERCENT: {
             "unit": "(at %)",
             "ternary_sum": 100.0,
+            "system_name": f"{metal_t}-{metal_l}-{metal_r}-O system"
         },
         UnitType.WEIGHT_PERCENT: {
             "unit": "(wt %)",
             "ternary_sum": 100.0,
+            "system_name": f"{metal_t}-{metal_l}-{metal_r}-O system"
         }
     }
 
@@ -57,12 +60,19 @@ def ternary_plot(system, unit_type=UnitType.ATOMIC_PERCENT):
         raise ValueError(f"Unsupported unit type: {unit_type}")
 
     unit = settings["unit"]
-    ax = plt.subplot(projection="ternary", ternary_sum=settings["ternary_sum"])
+    system_name = settings["system_name"]
+    fig, ax = plt.subplots(subplot_kw={"projection": "ternary", "ternary_sum": settings["ternary_sum"]})
+    fig.canvas.manager.set_window_title(f"{system_name} {unit}")
 
     # Set label name, color and position
-    ax.set_tlabel(f"{component_t} {unit}")
-    ax.set_llabel(f"{component_l} {unit}")
-    ax.set_rlabel(f"{component_r} {unit}")
+    if unit_type == UnitType.MOLAR_PERCENT:
+        ax.set_tlabel(f"{component_t} {unit}")
+        ax.set_llabel(f"{component_l} {unit}")
+        ax.set_rlabel(f"{component_r} {unit}")
+    if unit_type == UnitType.ATOMIC_PERCENT:
+        ax.set_tlabel(f"{metal_t} {unit}")
+        ax.set_llabel(f"{metal_l} {unit}")
+        ax.set_rlabel(f"{metal_r} {unit}")
 
     # Set locators for all ternary axes relative to the ternary sum
     # Set label and tick colors for each axis
@@ -156,7 +166,6 @@ def plot_with_points(ax, data_set, scatter_type=ScatterplotTypes.DEFINED):
     if scatter_type == ScatterplotTypes.DEFINED:
         # Create scatter plot for the generated or defined points
         ax.scatter(*data_set, s=20, c="k", zorder=10)
-
     elif scatter_type == ScatterplotTypes.MEASURED:
         # Create scatter plot for additional points
         ax.scatter(*data_set, s=30, c="r", marker="x", zorder=10)
@@ -202,62 +211,95 @@ def plot_error_bars(ax, system, data_set, total_mass, mass_uncertainty, unit_typ
         ValueError(f"Unknown system type: {system_type}")
 
 
-def print_weighing_table(data_set, system, system_type, total_weight=0.5, unit_type = UnitType.ATOMIC_PERCENT):
+def mol_percent_data_set_calculator(atomic_equidistant_data_set, system, system_type):
     if system_type == SystemType.TERNARY:
-        component_t, molar_mass_t = system[0]
-        component_l, molar_mass_l = system[1]
-        component_r, molar_mass_r = system[2]
-        t, l, r = data_set
-        print(f"{component_t}, {component_l} , {component_r}")
+        metal_t, metal_per_molecule_t, component_t, molar_mass_t = system[0]
+        metal_l, metal_per_molecule_l, component_l, molar_mass_l = system[1]
+        metal_r, metal_per_molecule_r, component_r, molar_mass_r = system[2]
+        t, l, r = atomic_equidistant_data_set
+        mol_percent_data_set = [[], [], []]
+        for i in range(len(t)):
+            atomic_to_molar_percentage_conversion = t[i]/metal_per_molecule_t + l[i]/metal_per_molecule_l + r[i]/metal_per_molecule_r
+            molecular_percentage_t = ((t[i]/metal_per_molecule_t) * 100) / atomic_to_molar_percentage_conversion
+            molecular_percentage_l = ((l[i] / metal_per_molecule_l) * 100) / atomic_to_molar_percentage_conversion
+            molecular_percentage_r = ((r[i] / metal_per_molecule_r) * 100) / atomic_to_molar_percentage_conversion
+            mol_percent_data_set[0].append(molecular_percentage_t)
+            mol_percent_data_set[1].append(molecular_percentage_l)
+            mol_percent_data_set[2].append(molecular_percentage_r)
+        return mol_percent_data_set
+    elif system_type == SystemType.BINARY:
+        component_a, metal_per_molecule_a, component_a, molar_mass_a = system[0]
+        component_b, metal_per_molecule_b, component_b, molar_mass_b = system[1]
+        points = atomic_equidistant_data_set[0]
+        mol_percent_data_set = [[], []]
+        for i in range(len(points)):
+            atomic_to_molar_percentage_conversion = points[i]/metal_per_molecule_a + (100-points[i])/metal_per_molecule_b
+            molecular_percentage_a = ((points[i]/metal_per_molecule_a) * 100) / atomic_to_molar_percentage_conversion
+            molecular_percentage_b = 100-molecular_percentage_a
+            mol_percent_data_set[0].append(molecular_percentage_a)
+            mol_percent_data_set[1].append(molecular_percentage_b)
+        return mol_percent_data_set
+    else:
+        raise ValueError(f"Do not know how to generate points for system type {system_type}")
 
+
+def print_weighing_table(mol_percent_data_set, system, system_type, total_weight=0.5):
+    if system_type == SystemType.TERNARY:
+        metal_t, metal_per_molecule_t, component_t, molar_mass_t = system[0]
+        metal_l, metal_per_molecule_l, component_l, molar_mass_l = system[1]
+        metal_r, metal_per_molecule_r, component_r, molar_mass_r = system[2]
+        t, l, r = mol_percent_data_set
+        print(f"{component_t}, {component_l} , {component_r}")
         for i in range(len(t)):
             molar_sum = t[i] * molar_mass_t + l[i] * molar_mass_l + r[i] * molar_mass_r
             scale_factor = total_weight/molar_sum
-
             t_weight = t[i] * molar_mass_t * scale_factor
             l_weight = l[i] * molar_mass_l * scale_factor
             r_weight = r[i] * molar_mass_r * scale_factor
-
             print(f"{t_weight:.4f}g, {l_weight:.4f}g , {r_weight:.4f}g")
 
     elif system_type == SystemType.BINARY:
-        component_a, molar_mass_a = system[0]
-        component_b, molar_mass_b = system[1]
-        points = data_set[0]
+        component_a, metal_per_molecule_a, component_a, molar_mass_a = system[0]
+        component_b, metal_per_molecule_b, component_b, molar_mass_b = system[1]
+        points = mol_percent_data_set[0]
         print(f"{component_a}, {component_b}")
-
         for i in range(len(points)):
             molar_sum = points[i] * molar_mass_a + (100-points[i]) * molar_mass_b
             scale_factor = total_weight/molar_sum
-
             a_weight = points[i] * molar_mass_a * scale_factor
             b_weight = (100-points[i]) * molar_mass_b * scale_factor
-
             print(f"{a_weight:.4f}g , {b_weight:.4f}g")
 
     else:
         raise ValueError(f"Do not know how to generate points for system type {system_type}")
 
 
-def weight_to_atomic_percent_dataset(system, system_type, measured_weight):
-    atomic_percent_list = []
+def weight_to_atomic_percent_dataset_calculator(system, system_type, measured_weight):
+    experimental_mol_percent_data_list = []
     if system_type == SystemType.TERNARY:
-        component_t, molar_mass_t = system[0]
-        component_l, molar_mass_l = system[1]
-        component_r, molar_mass_r = system[2]
+        metal_t, metal_per_molecule_t, component_t, molar_mass_t = system[0]
+        metal_l, metal_per_molecule_l, component_l, molar_mass_l = system[1]
+        metal_r, metal_per_molecule_r, component_r, molar_mass_r = system[2]
 
         weight_t_list = measured_weight[0]
         weight_l_list = measured_weight[1]
         weight_r_list = measured_weight[2]
 
+        experimental_mol_percent_t = []
+        experimental_mol_percent_l = []
+        experimental_mol_percent_r = []
         for weight_t, weight_l, weight_r in zip(weight_t_list, weight_l_list, weight_r_list):
             molar_sum = (weight_t / molar_mass_t) + (weight_l / molar_mass_l) + (weight_r / molar_mass_r)
             atomic_percent_t = (100 * (weight_t / molar_mass_t)) / molar_sum
             atomic_percent_l = (100 * (weight_l / molar_mass_l)) / molar_sum
             atomic_percent_r = (100 * (weight_r / molar_mass_r)) / molar_sum
-            sum_atomic_percent = atomic_percent_t + atomic_percent_l + atomic_percent_r
-            atomic_percent_t_l_r = (atomic_percent_t, atomic_percent_l, atomic_percent_r)
-            atomic_percent_list.append(atomic_percent_t_l_r)
+            experimental_mol_percent_t.append(atomic_percent_t)
+            experimental_mol_percent_l.append(atomic_percent_l)
+            experimental_mol_percent_r.append(atomic_percent_r)
+
+        return (np.array(experimental_mol_percent_t),
+                np.array(experimental_mol_percent_l),
+                np.array(experimental_mol_percent_r))
 
     elif system_type == SystemType.BINARY:
         component_a, molar_mass_a = system[0]
@@ -266,18 +308,21 @@ def weight_to_atomic_percent_dataset(system, system_type, measured_weight):
         weight_a_list = measured_weight[0]
         weight_b_list = measured_weight[1]
 
+        experimental_mol_percent_a = []
+        experimental_mol_percent_b = []
+
         for weight_a, weight_b in zip(weight_a_list, weight_b_list):
             molar_sum = (weight_a / molar_mass_a) + (weight_b / molar_mass_b)
             atomic_percent_a = (100 * (weight_a / molar_mass_a)) / molar_sum
             atomic_percent_b = (100 * (weight_b / molar_mass_b)) / molar_sum
-            sum_atomic_percent = atomic_percent_a + atomic_percent_b
-            atomic_percent_a_b = (atomic_percent_a, atomic_percent_b)
-            atomic_percent_list.append(atomic_percent_a_b)
+            experimental_mol_percent_a.append(atomic_percent_a)
+            experimental_mol_percent_b.append(atomic_percent_b)
+
+        return (np.array(experimental_mol_percent_a), )
 
     else:
         raise ValueError(f"Do not know how to generate points for system type {system_type}")
 
-    return atomic_percent_list
 
 def _plot_binary_error_bars(ax, system, data_set, total_mass, mass_uncertainty, unit_type=UnitType.ATOMIC_PERCENT):
     '''
@@ -286,8 +331,8 @@ def _plot_binary_error_bars(ax, system, data_set, total_mass, mass_uncertainty, 
     :param mass_uncertainty: (in grams) meaning +- uncertainty
     '''
     points = data_set[0]
-    component_1, molar_mass_1 = system[0]
-    component_2, molar_mass_2 = system[1]
+    metal_1, metal_per_molecule_1, component_1, molar_mass_1 = system[0]
+    metal_2, metal_per_molecule_2, component_2, molar_mass_2 = system[1]
 
     if unit_type == UnitType.ATOMIC_PERCENT or unit_type == UnitType.MOLAR_PERCENT:
         mole_uncertainty_1 = mass_uncertainty / molar_mass_1
@@ -331,9 +376,9 @@ def _plot_ternary_error_bars(ax, system, data_set, total_mass, mass_uncertainty,
     :param mass_uncertainty: (in grams) meaning +- uncertainty
     '''
     t, l, r = data_set
-    component_t, molar_mass_t = system[0]
-    component_l, molar_mass_l = system[1]
-    component_r, molar_mass_r = system[2]
+    metal_t, metal_per_molecule_t, component_t, molar_mass_t = system[0]
+    metal_l, metal_per_molecule_l, component_l, molar_mass_l = system[1]
+    metal_r, metal_per_molecule_r, component_r, molar_mass_r = system[2]
 
     if unit_type == UnitType.ATOMIC_PERCENT or unit_type == UnitType.MOLAR_PERCENT:
         mole_uncertainty_t = mass_uncertainty / molar_mass_t
@@ -419,93 +464,53 @@ def _execute_hexagon_error_plotting(ax, points, errors, err_bars_color):
 
 
 if __name__ == "__main__":
-    # System 1 creates equally spaced points in the ternary plot
-    system_1 = [("La$_2$O$_3$", 325.81), ("Al$_2$O$_3$", 101.96), ("SnO$_2$", 150.71)]
-    data_set_1 = None
-
-    # For system 2, t and l ratio has to be equal to 2
-    # system_2 = [("P$_2$O$_3$", 109.95), ("Nb$_2$O$_3$", 233.81), ("Al$_2$O$_3$", 101.96)]
-    # ratio_l_t = 1.53
-    # data_set_t = np.array([5, 10, 15, 20, 25, 30, 35])
-    # data_set_l = np.array([ratio_l_t * i for i in data_set_t])
-    # data_set_r = np.array([100 - (i + j) for i, j in zip(data_set_t, data_set_l)])
-    # data_set_2 = (data_set_t, data_set_l, data_set_r)
-    # measured_t_points =  np.array([0.1])
-    # measured_l_points = np.array([0.2])
-    # measured_r_points = np.array([0.3])
-    # measured_data_points = (measured_t_points, measured_l_points, measured_r_points)
-    #
-    system = system_1
-    unit_type = UnitType.ATOMIC_PERCENT
+    # Ternary system example
+    system_La_Al_Sn_O = [("La", 2, "La2O3", 325.81), ("Al", 2, "Al2O3", 101.96), ("Sn", 1, "SnO2", 150.71)]
+    system = system_La_Al_Sn_O
     system_type = SystemType.TERNARY
+
+    # First graph: Atomic percent, showing equidistant exploration points
+    unit_type = UnitType.ATOMIC_PERCENT
     ax = ternary_plot(system, unit_type)
     generated_data_set = generate_equidistant_points(system_type, n=8)
-    print_weighing_table(generated_data_set, system, system_type)
+    #print(f"{generated_data_set=}")
     plot_with_points(ax, generated_data_set, scatter_type=ScatterplotTypes.DEFINED)
-    #plot_with_points(ax, measured_data_points, scatter_type=ScatterplotTypes.MEASURED)
-    plot_error_bars(ax, system_1, generated_data_set, total_mass=0.5, mass_uncertainty=0.025, unit_type=unit_type)
-    plt.show()
+    plt.show(block=False)
+    plt.pause(1)
 
-    # # ====================== Binary diagram for Aziz ======================
-    # system = [("Al$_2$O$_3$", 101.96), ("Nb$_{1.53}$PO$_{6.35}$", 274.72)]
+    # Second graph: Molar percent, showing how these equidistant exploration points points translate to
+    # molar space considering the source chemicals
+    unit_type = UnitType.MOLAR_PERCENT
+    ax = ternary_plot(system, unit_type)
+    mol_percent_data_set = mol_percent_data_set_calculator(generated_data_set, system, system_type)
+    plot_error_bars(ax, system, mol_percent_data_set, total_mass=0.5, mass_uncertainty=0.025, unit_type=unit_type)
+
+    #print(f"{mol_percent_data_set=}")
+    plot_with_points(ax, mol_percent_data_set, scatter_type=ScatterplotTypes.DEFINED)
+
+    print_weighing_table(mol_percent_data_set, system, system_type, total_weight=0.5)
+
+    # Second graph modified: New points calculated from the experimental weighing results are added in red
+    measured_weight = (np.array([0.40, 0.36, 0.32, 0.30, 0.27, 0.24, 0.23, 0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.09, 0.08]),
+    np.array([0.02, 0.05, 0.02, 0.09, 0.05, 0.02, 0.14, 0.09, 0.05, 0.02, 0.22, 0.15, 0.09, 0.05, 0.02]),
+    np.array([0.07, 0.08, 0.15, 0.09, 0.16, 0.22, 0.11, 0.19, 0.25, 0.30, 0.13, 0.22, 0.29, 0.34, 0.38]))
+
+    experimental_mol_percent_data_list = weight_to_atomic_percent_dataset_calculator(system, system_type, measured_weight)
+    plot_with_points(ax, experimental_mol_percent_data_list, scatter_type=ScatterplotTypes.MEASURED)
+
+
+    plt.show()
+    #plt.pause(1)
+
+
+    # # Binary system example
+    # system_La_Sn_O = [("La", 2, "La2O3", 325.81), ("Sn", 1, "SnO2", 150.71)]
+    # system = system_La_Sn_O
     # unit_type = UnitType.ATOMIC_PERCENT
     # system_type = SystemType.BINARY
     # ax = binary_composition_diagram(system)
-    #
-    # # Targeted weight list first tuple corresponds to Al2O3 weights, and second Nb1.53PO6.35 weights
-    # target_weight = [(0.5000, 0.4045, 0.3265, 0.2616, 0.2068, 0.1599, 0.1194, 0.0839, 0.0526, 0.0248, 0.0000),
-    #                  (0.0000, 0.0955, 0.1735, 0.2384, 0.2932, 0.3401, 0.3806, 0.4161, 0.4474, 0.4752, 0.5000)]
-    #
-    # target_atomic_percent_list = weight_to_atomic_percent_dataset(system, system_type, target_weight)
-    # target_atomic_percent_list_comp_a = (np.array([i[0] for i in target_atomic_percent_list]),)
-    #
-    # plot_with_points(ax, target_atomic_percent_list_comp_a, scatter_type=ScatterplotTypes.DEFINED)
-    #
-    # plot_error_bars(ax, system, target_atomic_percent_list_comp_a, 0.5, 0.01, unit_type=unit_type)
-    #
-    # # Measured weight list first tuple corresponds to Al2O3 weights, and second Nb1.53PO6.35 weights
-    # measured_weight = [(0.4992, 0.4048, 0.3266, 0.2616, 0.2060, 0.1717, 0.1185, 0.0827, 0.0542, 0.0288, 0),
-    #                    (0.0000, 0.0959, 0.1755, 0.2391, 0.2933, 0.3408, 0.3810, 0.4164, 0.4474, 0.4757, 0.4995)]
-    #
-    # measured_atomic_percent_list = weight_to_atomic_percent_dataset(system, system_type, measured_weight)
-    # measured_atomic_percent_list_comp_a = (np.array([i[0] for i in measured_atomic_percent_list]),)
-    #
-    # plot_with_points(ax, measured_atomic_percent_list_comp_a, scatter_type=ScatterplotTypes.MEASURED)
-    #
-    # plt.show()
 
-    # # ====================== Ternary diagram for Aziz ======================
-    # system = [("P$_2$O$_{8.11}$", 191.69), ("Nb$_2$O$_3$", 233.81), ("Al$_2$O$_3$", 101.96)]
-    # unit_type = UnitType.ATOMIC_PERCENT
-    # system_type = SystemType.TERNARY
-    # ax = ternary_plot(system, unit_type)
-    #
-    # # Target weight list  tuple corresponds to P2O3,Nb2O3, Al2O3 weights
-    # target_weight = [(0.0000, 0.0333, 0.0605, 0.0832, 0.1023, 0.1186, 0.1328, 0.1452, 0.1561, 0.1658, 0.1745),
-    #                  (0.0000, 0.0622, 0.1130, 0.1552, 0.1909, 0.2214, 0.2478, 0.2709, 0.2913, 0.3094, 0.3255),
-    #                  (0.5000, 0.4045, 0.3265, 0.2616, 0.2068, 0.1599, 0.1194, 0.0839, 0.0526, 0.0248, 0.0000)]
-    #
-    # target_atomic_percent_list = weight_to_atomic_percent_dataset(system, system_type, target_weight)
-    #
-    # t = np.array([i[0] for i in target_atomic_percent_list])
-    # l = np.array([i[1] for i in target_atomic_percent_list])
-    # r = np.array([i[2] for i in target_atomic_percent_list])
-    # measured_atomic_percent_data_set = (t, l, r)
-    #
-    # plot_with_points(ax, measured_atomic_percent_data_set, scatter_type=ScatterplotTypes.DEFINED)
-    #
-    # # Measured weight list  tuple corresponds to P2O3,Nb2O3, Al2O3 weights
-    # measured_weight = [(0.0000, 0.0335, 0.0612, 0.0834, 0.1023, 0.1189, 0.1329, 0.1453, 0.1561, 0.1660, 0.1743),
-    #                    (0.0000, 0.0624, 0.1143, 0.1557, 0.1910, 0.2219, 0.2481, 0.2711, 0.2913, 0.3097, 0.3252),
-    #                    (0.4992, 0.4048, 0.3266, 0.2616, 0.2060, 0.1717, 0.1185, 0.0827, 0.0542, 0.0288, 0.0000)]
-    #
-    # measured_atomic_percent_list = weight_to_atomic_percent_dataset(system, system_type, measured_weight)
-    #
-    # t = np.array([i[0] for i in measured_atomic_percent_list])
-    # l = np.array([i[1] for i in measured_atomic_percent_list])
-    # r = np.array([i[2] for i in measured_atomic_percent_list])
-    # measured_atomic_percent_data_set = (t, l, r)
-    #
-    # plot_with_points(ax, measured_atomic_percent_data_set, scatter_type=ScatterplotTypes.MEASURED)
-    #
-    # plt.show()
+
+
+
+
