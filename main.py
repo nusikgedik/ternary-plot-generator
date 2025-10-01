@@ -61,7 +61,7 @@ def ternary_plot(system, unit_type=UnitType.ATOMIC_PERCENT):
 
     unit = settings["unit"]
     system_name = settings["system_name"]
-    fig, ax = plt.subplots(subplot_kw={"projection": "ternary", "ternary_sum": settings["ternary_sum"]})
+    fig, ax = plt.subplots(squeeze= True, subplot_kw={"projection": "ternary", "ternary_sum": settings["ternary_sum"]}, figsize=(8, 8))
     fig.canvas.manager.set_window_title(f"{system_name} {unit}")
 
     # Set label name, color and position
@@ -491,9 +491,9 @@ if __name__ == "__main__":
     print_weighing_table(mol_percent_data_set, system, system_type, total_weight=0.5)
 
     # Second graph modified: New points calculated from the experimental weighing results are added in red
-    measured_weight = (np.array([0.40, 0.36, 0.32, 0.30, 0.27, 0.24, 0.23, 0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.09, 0.08]),
-    np.array([0.02, 0.05, 0.02, 0.09, 0.05, 0.02, 0.14, 0.09, 0.05, 0.02, 0.22, 0.15, 0.09, 0.05, 0.02]),
-    np.array([0.07, 0.08, 0.15, 0.09, 0.16, 0.22, 0.11, 0.19, 0.25, 0.30, 0.13, 0.22, 0.29, 0.34, 0.38]))
+    measured_weight = (np.array([0.4091,	0.3591,	0.3222,	0.3061,	0.2796,	0.2468,	0.2475,	0.2249,	0.2054,	0.1641,	0.1418,	0.1181,	0.1019,	0.0918,	0.084]),
+                       np.array([0.0255,	0.0565,	0.0276,	0.0934,	0.0551,	0.0231,	0.1458,	0.0965,	0.0583,	0.0255,	0.2201,	0.1497,	0.0988,	0.0561,	0.0289]),
+                       np.array([0.0765,	0.0799,	0.1465,	0.0921,	0.171,	0.2258,	0.1132,	0.1918,	0.2577,	0.3089,	0.1304,	0.2254,	0.2912,	0.3492,	0.3846]))
 
     experimental_mol_percent_data_list = weight_to_atomic_percent_dataset_calculator(system, system_type, measured_weight)
     plot_with_points(ax, experimental_mol_percent_data_list, scatter_type=ScatterplotTypes.MEASURED)
