@@ -1,5 +1,7 @@
 from enum import Enum
 
+import matplotlib
+matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from mpltern.datasets import get_triangular_grid
@@ -63,6 +65,7 @@ def ternary_plot(system, unit_type=UnitType.ATOMIC_PERCENT):
     system_name = settings["system_name"]
     fig, ax = plt.subplots(squeeze= True, subplot_kw={"projection": "ternary", "ternary_sum": settings["ternary_sum"]}, figsize=(8, 8))
     fig.canvas.manager.set_window_title(f"{system_name} {unit}")
+    #fig.suptitle(f"{system_name} {unit}")
 
     # Set label name, color and position
     if unit_type == UnitType.MOLAR_PERCENT:
@@ -464,6 +467,8 @@ def _execute_hexagon_error_plotting(ax, points, errors, err_bars_color):
 
 
 if __name__ == "__main__":
+    print(matplotlib.get_backend())
+
     # Ternary system example
     system_La_Al_Sn_O = [("La", 2, "La2O3", 325.81), ("Al", 2, "Al2O3", 101.96), ("Sn", 1, "SnO2", 150.71)]
     system = system_La_Al_Sn_O
